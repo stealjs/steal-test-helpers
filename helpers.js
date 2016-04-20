@@ -66,16 +66,29 @@ Runner.prototype.clone = function(){
 		return Promise.reject();
 	};
 
+	loader.configMain = "package.json!npm";
+	loader._configLoaded = false;
+
 	var normalize = loader.normalize;
 	loader.normalize = function(name){
 		var loader = this, args = arguments;
+
+		if(this._configLoaded) {
+			return normalize.apply(this, arguments);
+		}
+
 		return normalize.apply(this, arguments)
 			.then(function(name){
 				if(allow[name]) {
 					return name;
 				}
-
 				return loader.import("package.json!npm")
+				.then(function(){
+					loader._configLoaded = true;
+					if(loader._installModules) {
+						return loader._installModules();
+					}
+				})
 				.then(function(){
 					return normalize.apply(loader, args);
 				});
@@ -173,6 +186,12 @@ Package.prototype.forEachDeps = function(callback){
 	}
 };
 
+function toModule(fn){
+  var source = fn.toString()
+    .replace(/^function \(\).*{/, "");
+  return source.substr(0, source.length - 1).trim();
+}
+
 module.exports = function(System){
 	return {
 		clone: function(){
@@ -181,6 +200,7 @@ module.exports = function(System){
 		Package: Package,
 		package: function(pkg){
 			return new Package(pkg);
-		}
+		},
+    toModule: toModule
 	};
 };
