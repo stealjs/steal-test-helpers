@@ -6,6 +6,8 @@ function Runner(System){
 	this.BaseSystem = System;
 	this.deps = [];
 	this.sources = {};
+	this.fetchAllowed = {};
+	this.fetchAll = false;
 }
 
 Runner.prototype.clone = function(){
@@ -62,6 +64,9 @@ Runner.prototype.clone = function(){
 		if(runner.sources[load.name]) {
 			var source = runner.sources[load.name];
 			return Promise.resolve(source);
+		}
+		if(this.fetchAll || this.fetchAllowed[load.name]) {
+			return fetch.apply(this, arguments);
 		}
 		return Promise.reject();
 	};
@@ -165,6 +170,15 @@ Runner.prototype._addVersion = function(){
 	}
 };
 
+Runner.prototype.allowFetch = function(val){
+	if(val === true) {
+		this.fetchAll = true;
+	} else {
+		this.fetchAllowed[val] = true;
+	}
+	return this;
+};
+
 function Package(pkg){
 	this.pkg = pkg;
 	this._deps = [];
@@ -187,9 +201,9 @@ Package.prototype.forEachDeps = function(callback){
 };
 
 function toModule(fn){
-  var source = fn.toString()
-    .replace(/^function \(\).*{/, "");
-  return source.substr(0, source.length - 1).trim();
+	var source = fn.toString()
+		.replace(/^function \(\).*{/, "");
+	return source.substr(0, source.length - 1).trim();
 }
 
 module.exports = function(System){
