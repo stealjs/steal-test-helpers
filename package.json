@@ -1,6 +1,6 @@
 {
   "name": "steal-test-helpers",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Test helpers, to help testing steal",
   "main": "helpers.js",
   "scripts": {

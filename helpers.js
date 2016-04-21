@@ -65,7 +65,7 @@ Runner.prototype.clone = function(){
 			var source = runner.sources[load.name];
 			return Promise.resolve(source);
 		}
-		if(this.fetchAll || this.fetchAllowed[load.name]) {
+		if(runner.fetchAll || runner.fetchAllowed[load.name]) {
 			return fetch.apply(this, arguments);
 		}
 		return Promise.reject();
