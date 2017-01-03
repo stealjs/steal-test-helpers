@@ -2,24 +2,22 @@ var crawl = require("npm-crawl");
 var convert = require("npm-convert");
 var utils = require("npm-utils");
 
-function Runner(System){
-	this.BaseSystem = System;
+function Runner(steal){
+	this.BaseSteal = steal;
 	this.deps = [];
 	this.sources = {};
 	this.fetchAllowed = {};
 	this.fetchAll = false;
+	this.allow = {};
 }
 
 Runner.prototype.clone = function(){
 	var runner = this;
-	var System = this.BaseSystem;
-	var loader = this.loader = System.clone();
-	loader.set("@loader", loader.newModule({
-		__useDefault: true,
-		"default": loader
-	}));
+	var System = this.BaseSteal.System;
+	var steal = this.steal = this.BaseSteal.clone();
+	var loader = this.loader = steal.loader;
 
-	var allow = {};
+	var allow = this.allow;
 	utils.forEach([
 		"package.json",
 		"package.json!npm",
@@ -30,7 +28,8 @@ Runner.prototype.clone = function(){
 		"npm-extension",
 		"npm-utils",
 		"semver",
-		"@loader"
+		"@loader",
+		"@steal"
 	], function(name){
 		allow[name] = true;
 	});
@@ -58,8 +57,10 @@ Runner.prototype.clone = function(){
 
 		}
 		if(allow[load.name]) {
-			var source = System.getModuleLoad(load.name).source;
-			return Promise.resolve(source);
+			var foundLoad = System.getModuleLoad(load.name);
+			if(foundLoad) {
+				return Promise.resolve(foundLoad.source);
+			}
 		}
 		if(runner.sources[load.name]) {
 			var source = runner.sources[load.name];
@@ -87,7 +88,7 @@ Runner.prototype.clone = function(){
 				if(allow[name]) {
 					return name;
 				}
-				return loader.import("package.json!npm")
+				var configPromise = loader.import("package.json!npm")
 				.then(function(){
 					loader._configLoaded = true;
 					if(loader._installModules) {
@@ -97,6 +98,10 @@ Runner.prototype.clone = function(){
 				.then(function(){
 					return normalize.apply(loader, args);
 				});
+
+				steal.done = function() { return configPromise; };
+
+				return configPromise;
 			});
 	};
 
@@ -106,6 +111,13 @@ Runner.prototype.clone = function(){
 Runner.prototype.rootPackage = function(pkg){
 	this.root = pkg;
 	this._addVersion();
+	var config = pkg.system || pkg.steal;
+	if(config && config.configDependencies) {
+		var th = this;
+		config.configDependencies.forEach(function(name){
+			th.allow[name] = true;
+		});
+	}
 	return this;
 };
 
@@ -165,7 +177,7 @@ Runner.prototype._addVersion = function(){
 	var root = this.root;
 	var algo = this.algorithm;
 	if(algo) {
-		var system = root.system = root.system || {};
+		var system = root.system = (root.system || root.steal || {});
 		system.npmAlgorithm = algo;
 	}
 };
